@@ -103,7 +103,7 @@ repeated runs are identical). The difference comes from the library versions (to
   shipped workflows by ComfyUI's own `validate_prompt`). The tiny model keeps the official width (1536, 12 heads; the pipeline's
   caches are sized for it) with one layer, an 8 x 8 latent, and small stand-ins for the text encoder and the VAE.
 - `scripts/ci_queue_check.py`: a stock ComfyUI server with the pack, the tiny model on the CPU, the shipped workflow through the
-  queue: same seed gives the same decoded video, another seed a different one, a bad length fails, rolling and plain cache run,
+  queue: same seed gives the same generated frames (their SHA-256), another seed different ones, a bad length fails, rolling and plain cache run,
   Unload works.
 - Both also pass with CUDA hidden (`CUDA_VISIBLE_DEVICES=-1`), as on the CPU-only CI runners.
 
@@ -131,3 +131,8 @@ this pack's `requirements.txt`), `git clone` of this repository into `custom_nod
   normally.
 - After the CPU-import fix (commit `3e1181d`, no change on CUDA machines) the clean installation was updated with `git pull` and
   `scripts/ci_queue_check.py --keep-pack` passed against it.
+
+Note on the CI queue check: on the Ubuntu runners, ComfyUI's Save Video sometimes encoded identical generated frames into MP4
+files that decode to different pixels (seen on 2026-10-19 in the DuoMatching CI, 4 of 12 jobs, with ComfyUI v0.38.0 and v0.41.0;
+the frames had the same SHA-256). The check therefore compares the generated frames, not the MP4 files. Locally on Windows the
+MP4 files of identical frames were byte-identical.

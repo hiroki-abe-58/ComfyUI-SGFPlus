@@ -109,7 +109,7 @@ flash-attn is not needed. If it is installed, the official flash-attn path runs 
 - **long_video** (default on) is the setting of the official SGF+ launcher (`scripts/infer_sgf_plus.sh`): a rolling cache of the
   last frames plus a few pinned first frames, with positions kept in the trained range (chunkwise 3 + 6 + 3 frames, framewise
   4 + 16 + 1). Off gives the plain cache of `inference.py` without `--long_video`, meant for the 5 s window.
-- **Seed.** The same model, prompt, seed, settings and environment give the same video (checked). Different library versions give
+- **Seed.** The same model, prompt, seed, settings and environment give the same video frames (checked). Different library versions give
   a different video for the same seed (see above).
 - **text_encoder.** `auto` follows the official rule: with less than 40 GB of free VRAM the 11 GB umT5 encoder stays in RAM and is
   streamed to the GPU when the prompt is encoded (`dynamic_swap`); otherwise it moves to the GPU. `gpu` and `dynamic_swap` force one.
