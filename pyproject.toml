@@ -1,0 +1,26 @@
+[project]
+name = "sgf-plus"
+description = "Self Gradient Forcing+ for ComfyUI: autoregressive text-to-video with the official SGF+ model (Wan2.1-T2V-1.3B with a separate context-writing expert), 4 denoising steps per block, long videos with the official rolling KV cache. Run in-process; matches the official inference script bit for bit in the same environment."
+version = "0.1.0"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+dependencies = ["diffusers>=0.31.0", "omegaconf", "ftfy", "regex", "einops", "transformers>=4.49.0"]
+
+[project.urls]
+Repository = "https://github.com/hiroki-abe-58/ComfyUI-SGFPlus"
+
+[tool.comfy]
+PublisherId = "hiroki-abe-58"
+DisplayName = "Self Gradient Forcing+ for ComfyUI"
+Icon = ""
+
+[tool.ruff]
+line-length = 180
+target-version = "py310"
+extend-exclude = ["sgfplus_comfy/vendor/sgf"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

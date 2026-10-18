@@ -1,0 +1,27 @@
+Self Gradient Forcing+ for ComfyUI
+Copyright (c) 2026 hiroki-abe-58. The code of this node pack (everything outside sgfplus_comfy/vendor) is licensed under the MIT
+License (LICENSE).
+
+This node pack is an unofficial integration. It is not affiliated with or endorsed by the SGF+ authors, by the Wan team (Alibaba) or
+by Comfy Org.
+
+Third-party code included in this repository
+---------------------------------------------
+
+sgfplus_comfy/vendor/sgf
+    From https://github.com/Zihan-Su/Self_Gradient_Forcing_Plus, commit 7a7734f592f1bdb51edd28f1c42ca95b9f652453.
+    Apache License 2.0 (sgfplus_comfy/vendor/LICENSE). Copied files are unchanged; five files carry the documented edits listed in
+    sgfplus_comfy/vendor/UPSTREAM.md and start with a change notice, and five package markers are this pack's own files.
+    Parts of the upstream code come from other projects, as their file headers or the upstream README say:
+    - wan/modules/*: Copyright 2024-2025 The Alibaba Wan Team Authors, Apache License 2.0 (Wan2.1).
+    - demo_utils/memory.py: copied by upstream from lllyasviel/FramePack, Apache License 2.0.
+    - The causal generator, the inference pipeline, the model wrapper and the scheduler descend, through Self Gradient Forcing and
+      Self Forcing (both Apache License 2.0), from CausVid (tianweiy/CausVid), whose repository is published under CC BY-NC-SA 4.0.
+      The downstream projects publish this code under Apache License 2.0; this pack redistributes it under that license and does
+      not settle that history. Check it yourself before commercial use (sgfplus_comfy/vendor/UPSTREAM.md).
+
+Models (not included)
+---------------------
+No model weights are included or downloaded by the nodes. tools/download_model.py fetches, when you run it:
+- Wan-AI/Wan2.1-T2V-1.3B (model card: Apache-2.0): base generator config and weights, umT5-XXL text encoder, VAE, tokenizer.
+- ZihanSu/Self_Gradient_Forcing_Plus (model card: Apache-2.0): chunkwise/model.pt and, if requested, framewise/model.pt.

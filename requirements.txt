@@ -1,0 +1,6 @@
+diffusers>=0.31.0
+omegaconf
+ftfy
+regex
+einops
+transformers>=4.49.0

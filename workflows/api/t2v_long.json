@@ -1,0 +1,7 @@
+{
+  "1": {"class_type": "SGFPlusLoader", "inputs": {"checkpoint": "sgf_plus_chunkwise.pt", "variant": "chunkwise", "text_encoder": "auto", "keep_loaded": true}},
+  "2": {"class_type": "SGFPlusTextToVideo", "inputs": {"model": ["1", 0], "prompt": "A drone flies slowly along a winding river through autumn forests, aerial view.", "seed": 7, "latent_frames": 81, "long_video": true}},
+  "3": {"class_type": "CreateVideo", "inputs": {"images": ["2", 0], "fps": ["2", 1]}},
+  "4": {"class_type": "SaveVideo", "inputs": {"video": ["3", 0], "filename_prefix": "sgf_plus/t2v_long", "format": "auto", "codec": "auto"}},
+  "5": {"class_type": "PreviewAny", "inputs": {"source": ["2", 2]}}
+}
