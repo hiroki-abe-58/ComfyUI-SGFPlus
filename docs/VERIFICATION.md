@@ -95,7 +95,7 @@ repeated runs are identical). The difference comes from the library versions (to
 
 ## 5. Tests without the weights (tiny model)
 
-- `tests/` (49 tests, CPU): the vendored files against the pinned upstream commit (copied files byte for byte, patched files =
+- `tests/` (51 tests, CPU): the vendored files against the pinned upstream commit (copied files byte for byte, patched files =
   upstream + the listed edits, syntax trees of the model and the pipeline unchanged apart from imports), the SDPA fallback against
   a float64 reference, the package scan for environment / network / process code, the download manifest, the runtime against the
   official steps re-implemented in the test (chunkwise and framewise, plain and rolling cache, with eviction), seeds, interrupt,
@@ -105,3 +105,29 @@ repeated runs are identical). The difference comes from the library versions (to
 - `scripts/ci_queue_check.py`: a stock ComfyUI server with the pack, the tiny model on the CPU, the shipped workflow through the
   queue: same seed gives the same decoded video, another seed a different one, a bad length fails, rolling and plain cache run,
   Unload works.
+- Both also pass with CUDA hidden (`CUDA_VISIBLE_DEVICES=-1`), as on the CPU-only CI runners.
+
+## 6. CI
+
+GitHub Actions (`.github/workflows/ci.yml`), CPU only, ComfyUI v0.38.0 and the upstream commit checked out at their pinned commits:
+Ubuntu 24.04 with Python 3.12 / torch 2.14.1 and Python 3.10 / torch 2.8.0, Windows with Python 3.12 / torch 2.14.1. Each job runs
+ruff, a scan for absolute local paths, the test suite with the references required (nothing may be skipped: 51 tests) and the
+real-queue check with the tiny model. The first run failed on all three jobs because a vendored module queried the CUDA device at
+import time on the CPU-only torch builds; fixed in `3e1181d` (section 5), all three jobs pass since.
+
+## 7. Clean install
+
+Fresh ComfyUI v0.38.0 clone, fresh Python 3.12 virtual environment (torch 2.14.1+cu130, then ComfyUI's `requirements.txt`, then
+this pack's `requirements.txt`), `git clone` of this repository into `custom_nodes`:
+
+- `tools/download_model.py --models-dir ComfyUI/models/sgf_plus` downloaded the Wan2.1 files (17.6 GB, 9.5 min) and verified all
+  10 files against `tools/model_files.sha256` (the SGF+ checkpoint was placed beforehand as a hard link to the already downloaded
+  file; the tool verified it and skipped the download).
+- Real queue, default settings, fox / seed 42, chunkwise: 81 frames, 14.9 s, peak 13.14 GiB; **frames identical** to the
+  development environment's queue run (81 / 81).
+- Both shipped workflows unchanged: `t2v_basic` (its generation was served from ComfyUI's cache of the identical job before it)
+  and `t2v_long` (321 frames); the saved `t2v_long` MP4 is byte-identical to the one from the development environment.
+- Installing this pack's requirements moved `huggingface-hub` from 2.2.0 to 1.33.0 (diffusers 0.41.0 requires `<2.0`); ComfyUI ran
+  normally.
+- After the CPU-import fix (commit `3e1181d`, no change on CUDA machines) the clean installation was updated with `git pull` and
+  `scripts/ci_queue_check.py --keep-pack` passed against it.

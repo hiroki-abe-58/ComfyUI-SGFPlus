@@ -33,7 +33,15 @@ Windows 11、RTX 5090（32 GB）、ComfyUI v0.38.0：
   細部が異なります。bfloat16 の自己回帰モデルでは、ライブラリ間の小さな数値差（テキストエンコーダーの出力で約 2 %）がブロックを
   追うごとに積み重なるためです。コードの差ではなく環境の差で、同じ環境なら毎回同じ動画になります。
 - **実モデルでの実行**：両バリアント、両キャッシュモード、5〜20 秒、中断（とその後の実行）、keep_loaded オフ、Unload、
-  ブロックの倍数でない長さ（実行前にエラー）。
+  ブロックの倍数でない長さ（生成前にエラー）。
+- **クリーンインストール**：新しい ComfyUI v0.38.0、新しい Python 3.12 環境、このリポジトリの `git clone`、`pip install -r
+  requirements.txt`、`tools/download_model.py` での Wan2.1 のダウンロード（SHA-256 検証）。キューの出力は開発環境と同じフレームになり、
+  同梱ワークフローは 2 本ともそのまま動きました。
+- **CI**（GitHub Actions、Ubuntu と Windows、Python 3.10 / torch 2.8.0 と Python 3.12 / torch 2.14.1）：公式のファイル構成の小さな
+  ランダム生成器による CPU テスト、上流の固定コミットとの比較、公式手順との比較、CPU での実際の ComfyUI キュー。CI ではモデル
+  （約 29 GB）をダウンロードしません。
+- 依存関係の注意：diffusers 0.41.0 が `huggingface-hub<2.0` を要求するため、新しい ComfyUI 0.38.0 環境に入れると
+  `huggingface-hub` が 2.2.0 から 1.33.0 に下がります（ComfyUI 自体は問題なく動作）。
 
 **未確認**：Linux / macOS の GPU、AMD / Apple の GPU、VRAM 24 GB 未満の GPU、他の ComfyUI バージョン、flash-attn を入れた環境、
 論文ベンチマークでの画質評価（公式出力の再現までを確認しています）。

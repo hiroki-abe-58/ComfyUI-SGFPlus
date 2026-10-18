@@ -4,8 +4,9 @@ Text-to-video in ComfyUI with the official **Self Gradient Forcing+ (SGF+)** mod
 ([Zihan-Su/Self_Gradient_Forcing_Plus](https://github.com/Zihan-Su/Self_Gradient_Forcing_Plus), paper
 [arXiv:2610.10429](https://arxiv.org/abs/2610.10429), *Decoupling Gradient Flows for Autoregressive Video Generation*). SGF+ is an
 autoregressive Wan2.1-T2V-1.3B: it generates a video block by block with 4 denoising steps per block, and a separate
-"memory" expert writes each finished block into the attention cache. With the official rolling cache the same model keeps going far
-beyond its 5 s training window. Everything runs **inside the ComfyUI process**; the nodes never download anything.
+"memory" expert writes each finished block into the attention cache. For long videos the official launcher uses a rolling cache
+(the authors report rollouts of up to 24 hours from a 5 s training window; clips up to 20 s were run here). Everything runs
+**inside the ComfyUI process**; the nodes never download anything.
 
 > **Unofficial.** This node pack is an independent integration. It is not affiliated with or endorsed by the SGF+ authors, by the
 > Wan team (Alibaba) or by Comfy Org.
@@ -38,10 +39,11 @@ Windows 11, RTX 5090 (32 GB), ComfyUI v0.38.0 (details and raw numbers in [docs/
 
 - **Bit-identical to the official code.** In an environment with upstream's pinned libraries (Python 3.11, torch 2.8.0, diffusers
   0.31.0, transformers 4.49.0, numpy 1.24.4) the pack gives the same video, byte for byte (SHA-256 of the float frames), as the
-  official `inference.py` with the launcher's arguments, in 5 of 5 cases: chunkwise with the plain cache (2 prompts, 81 frames),
-  chunkwise with the rolling long-video cache (189 frames, past the 12-frame cache), framewise with the plain cache (81 frames) and
-  framewise with the rolling cache (165 frames). flash-attn has no Windows build; for the official run its function was replaced by
-  PyTorch SDPA computing the same attention (the same change the pack makes, see below).
+  official `inference.py` in 5 of 5 cases: chunkwise with the plain cache (2 prompts, 81 frames), chunkwise with the rolling
+  long-video cache and the launcher's cache arguments (189 frames, past the 12-frame cache), framewise with the plain cache (81
+  frames) and framewise with the rolling cache (165 frames). flash-attn has no Windows build; for the official run its function was
+  replaced by PyTorch SDPA computing the same attention (the same change the pack makes; see
+  [vendor/UPSTREAM.md](sgfplus_comfy/vendor/UPSTREAM.md)).
 - **Real ComfyUI queue:** in a ComfyUI environment with torch 2.14.1, diffusers 0.41.0 and transformers 5.20.1 the queue gives the
   same frames as the pack's in-process run, byte for byte (chunkwise and framewise). Against the official run in the other
   environment the videos show the same scenes but differ in detail: an autoregressive bfloat16 model carries small numeric
@@ -49,8 +51,15 @@ Windows 11, RTX 5090 (32 GB), ComfyUI v0.38.0 (details and raw numbers in [docs/
   not the code; the same environment gives the same video every time.
 - **Real jobs:** both variants, both cache modes, 5 s to 20 s clips, interrupt (and the next job after it), keep-loaded off, unload,
   and a length that does not fill whole blocks (rejected before generating), all with the real weights.
+- **Clean install:** fresh ComfyUI v0.38.0, fresh Python 3.12 environment, `git clone` of this repository, `pip install -r
+  requirements.txt`, the Wan2.1 files downloaded with `tools/download_model.py` (SHA-256 verified): the queue gives the same frames
+  as the development environment, and both shipped workflows run unchanged.
+- **CI** (GitHub Actions; Ubuntu and Windows; Python 3.10 / torch 2.8.0 and Python 3.12 / torch 2.14.1): CPU tests with a tiny
+  random generator in the official file layout, the vendored code compared with the pinned upstream commit, the runtime compared
+  with the official steps, and a real ComfyUI queue on the CPU. CI does not download the weights (about 29 GB).
 
-**Not checked:** Linux or macOS with a GPU, AMD / Apple GPUs, GPUs with less than 24 GB, other ComfyUI versions, runs with
+**Not checked:** Linux or macOS with a GPU, GPUs other than the 32 GB RTX 5090 (AMD / Apple GPUs in particular), other ComfyUI
+versions, runs with
 flash-attn installed, and video quality against the paper's benchmarks (the pack reproduces the official outputs; it does not
 re-evaluate the model).
 
@@ -59,10 +68,10 @@ re-evaluate the model).
 1. ComfyUI with the V3 node API (**v0.38.0** was used), Python 3.10+ and an NVIDIA GPU: the peak allocation was 13.7 GiB for
    chunkwise and 15.8 GiB for framewise (see the table below; only a 32 GB card was tried). The text encoder (11 GB) stays in RAM
    unless the card has 40 GB free.
-2. Put this folder into `ComfyUI/custom_nodes/` (or install it from the ComfyUI Manager once listed) and install its requirements
-   into ComfyUI's Python:
+2. Clone this repository into `ComfyUI/custom_nodes/` and install its requirements into ComfyUI's Python:
 
    ```
+   git clone https://github.com/hiroki-abe-58/ComfyUI-SGFPlus custom_nodes/ComfyUI-SGFPlus
    python -m pip install -r custom_nodes/ComfyUI-SGFPlus/requirements.txt
    ```
 
