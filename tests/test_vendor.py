@@ -67,6 +67,18 @@ def test_only_the_imports_change_in_the_model_and_the_pipeline(upstream_dir, rel
     assert _without_imports(VENDOR / vendor_sync.PKG / rel) == _without_imports(upstream_dir / rel)
 
 
+def test_the_vendored_pipeline_imports_without_cuda(tmp_path):
+    """CI runs CPU-only torch builds; here CUDA is hidden from a fresh interpreter instead."""
+    import os
+    import subprocess
+    import sys
+
+    env = {**os.environ, "CUDA_VISIBLE_DEVICES": "-1"}  # an empty value counts as unset on Windows
+    code = "import torch; assert not torch.cuda.is_available(); import sgfplus_comfy.vendor.sgf.pipeline.causal_inference"
+    done = subprocess.run([sys.executable, "-c", code], cwd=ROOT, env=env, capture_output=True, text=True, timeout=300)
+    assert done.returncode == 0, done.stderr[-2000:]
+
+
 def _attention():
     from sgfplus_comfy.vendor.sgf.wan.modules import attention
 

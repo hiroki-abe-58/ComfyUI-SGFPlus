@@ -10,7 +10,7 @@ Third-party code included in this repository
 
 sgfplus_comfy/vendor/sgf
     From https://github.com/Zihan-Su/Self_Gradient_Forcing_Plus, commit 7a7734f592f1bdb51edd28f1c42ca95b9f652453.
-    Apache License 2.0 (sgfplus_comfy/vendor/LICENSE). Copied files are unchanged; five files carry the documented edits listed in
+    Apache License 2.0 (sgfplus_comfy/vendor/LICENSE). Copied files are unchanged; six files carry the documented edits listed in
     sgfplus_comfy/vendor/UPSTREAM.md and start with a change notice, and five package markers are this pack's own files.
     Parts of the upstream code come from other projects, as their file headers or the upstream README say:
     - wan/modules/*: Copyright 2024-2025 The Alibaba Wan Team Authors, Apache License 2.0 (Wan2.1).

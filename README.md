@@ -129,11 +129,14 @@ in RAM with `dynamic_swap`, the `auto` choice on a 32 GB card).
 - The nodes need a CUDA GPU (the official pipeline is CUDA-only). The test suite runs a tiny random model on the CPU.
 - One SGF+ model is resident at a time; loading the other variant frees the first.
 - RAM: the checkpoint (11.4 GB) is memory-mapped while loading; with `dynamic_swap` the text encoder (11 GB) stays in RAM.
+- Dependencies: the official model code is built on diffusers. diffusers 0.41.0 (the current release when this was written)
+  requires `huggingface-hub<2.0`, so installing the requirements into a fresh ComfyUI 0.38.0 environment moves `huggingface-hub`
+  from 2.2.0 to 1.33.0. ComfyUI itself ran normally with it here; check other custom nodes you use if they need 2.x.
 
 ## Licenses
 
 - This node pack's own code (everything outside `sgfplus_comfy/vendor`): **MIT** ([LICENSE](LICENSE)).
-- `sgfplus_comfy/vendor/sgf`: upstream SGF+ code, **Apache-2.0**, copied unchanged except for five documented edits
+- `sgfplus_comfy/vendor/sgf`: upstream SGF+ code, **Apache-2.0**, copied unchanged except for six documented edits
   ([vendor/UPSTREAM.md](sgfplus_comfy/vendor/UPSTREAM.md)). Its Wan modules are the Wan team's (Apache-2.0).
 - **Provenance note.** SGF+ builds on Self Gradient Forcing and Self Forcing (Apache-2.0). Self Forcing says it is built on top of
   CausVid, whose repository is published under **CC BY-NC-SA 4.0**. The downstream projects publish the code under Apache-2.0, and

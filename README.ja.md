@@ -78,7 +78,7 @@ flash-attn は不要です。
 ## ライセンス
 
 - このパック独自のコード（`sgfplus_comfy/vendor` 以外）：**MIT**（[LICENSE](LICENSE)）。
-- `sgfplus_comfy/vendor/sgf`：上流 SGF+ のコード、**Apache-2.0**。5 ファイルに記録済みの変更があります
+- `sgfplus_comfy/vendor/sgf`：上流 SGF+ のコード、**Apache-2.0**。6 ファイルに記録済みの変更があります
   （[vendor/UPSTREAM.md](sgfplus_comfy/vendor/UPSTREAM.md)）。
 - **由来についての注意**：SGF+ は Self Gradient Forcing と Self Forcing（いずれも Apache-2.0）を土台にしています。Self Forcing は
   CausVid を土台にしたと書いており、CausVid のリポジトリは **CC BY-NC-SA 4.0** で公開されています。下流のプロジェクトはこのコードを

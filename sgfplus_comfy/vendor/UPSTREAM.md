@@ -9,7 +9,7 @@ checkout; `tests/test_vendor.py` repeats that in CI and compares every byte, and
 
 ## Copied unchanged (byte-identical)
 
-- `sgf/wan/modules/`: `__init__.py`, `model.py`, `t5.py`, `tokenizers.py`, `vae.py` (Copyright 2024-2025 The Alibaba Wan Team Authors,
+- `sgf/wan/modules/`: `__init__.py`, `model.py`, `tokenizers.py`, `vae.py` (Copyright 2024-2025 The Alibaba Wan Team Authors,
   Apache-2.0, as their headers say)
 - `sgf/utils/scheduler.py`
 - `sgf/configs/`: `default_config.yaml`, `sgf_plus_chunkwise.yaml`, `sgf_plus_framewise.yaml` (the release configs; the pack reads
@@ -33,6 +33,10 @@ edits are the `EDITS` table of `scripts/vendor_sync.py`; the test applies them t
   returns the CPU device when CUDA is not available (upstream calls `torch.cuda.current_device()` unconditionally).
 - `demo_utils/memory.py` (copied by upstream from lllyasviel/FramePack, Apache-2.0, as its header says): the module-level `gpu`
   device falls back to the CPU when CUDA is not available, so the module can be imported on a CPU-only machine.
+- `wan/modules/t5.py` (Wan team, Apache-2.0): the default `device` argument of `T5EncoderModel.__init__` (a class the pipeline does
+  not use) is `torch.cuda.current_device()`, which Python evaluates when the module is imported; it falls back to `'cpu'` when
+  CUDA is not available. Same reason as above. The nodes need CUDA anyway; this lets the test suite and CI import the code on the
+  CPU.
 
 ## Pack shims (own files, not from upstream)
 

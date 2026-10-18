@@ -1,3 +1,4 @@
+# Changed by ComfyUI-SGFPlus; sgfplus_comfy/vendor/UPSTREAM.md lists the changes.
 # Modified from transformers.models.t5.modeling_t5
 # Copyright 2024-2025 The Alibaba Wan Team Authors. All rights reserved.
 import logging
@@ -475,7 +476,7 @@ class T5EncoderModel:
         self,
         text_len,
         dtype=torch.bfloat16,
-        device=torch.cuda.current_device(),
+        device=torch.cuda.current_device() if torch.cuda.is_available() else 'cpu',
         checkpoint_path=None,
         tokenizer_path=None,
         shard_fn=None,

@@ -9,7 +9,7 @@ Only the files that text-to-video inference needs are vendored. COPIED files are
 - the Wan2.1 model folder is a module variable (`WAN_MODELS`, default the upstream "wan_models") instead of a literal relative path;
 - PyTorch SDPA in `flash_attention()` when flash-attn is not installed and no padding lengths are given (the attention is the same;
   flash-attn is not available on Windows);
-- CPU-only machines: the CUDA device is not queried at import time.
+- CPU-only machines: the CUDA device is not queried at import time (the nodes need CUDA; the tests and CI run on the CPU).
 SHIMS are this pack's own package markers (`__init__.py`) replacing upstream ones that import training / demo code.
 tests/test_vendor.py rebuilds the tree from the pinned upstream commit in CI and compares every byte.
 """
@@ -28,7 +28,7 @@ UPSTREAM_COMMIT = "7a7734f592f1bdb51edd28f1c42ca95b9f652453"
 NOTICE = "# Changed by ComfyUI-SGFPlus; sgfplus_comfy/vendor/UPSTREAM.md lists the changes.\n"
 
 COPIED = [
-    "wan/modules/__init__.py", "wan/modules/model.py", "wan/modules/t5.py", "wan/modules/tokenizers.py", "wan/modules/vae.py",
+    "wan/modules/__init__.py", "wan/modules/model.py", "wan/modules/tokenizers.py", "wan/modules/vae.py",
     "utils/scheduler.py", "configs/default_config.yaml", "configs/sgf_plus_chunkwise.yaml", "configs/sgf_plus_framewise.yaml",
 ]
 SHIMS = ["__init__.py", "wan/__init__.py", "utils/__init__.py", "pipeline/__init__.py", "demo_utils/__init__.py"]
@@ -90,6 +90,10 @@ EDITS = {
     "demo_utils/memory.py": [
         ("gpu = torch.device(f'cuda:{torch.cuda.current_device()}')\n",
          "gpu = torch.device(f'cuda:{torch.cuda.current_device()}') if torch.cuda.is_available() else cpu\n"),
+    ],
+    "wan/modules/t5.py": [  # a default argument of T5EncoderModel.__init__, evaluated when the module is imported
+        ("        device=torch.cuda.current_device(),\n",
+         "        device=torch.cuda.current_device() if torch.cuda.is_available() else 'cpu',\n"),
     ],
 }
 
