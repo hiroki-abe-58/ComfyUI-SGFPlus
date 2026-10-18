@@ -43,7 +43,7 @@ Windows 11、RTX 5090（32 GB）、ComfyUI v0.38.0：
 - 依存関係の注意：diffusers 0.41.0 が `huggingface-hub<2.0` を要求するため、新しい ComfyUI 0.38.0 環境に入れると
   `huggingface-hub` が 2.2.0 から 1.33.0 に下がります（ComfyUI 自体は問題なく動作）。
 
-**未確認**：Linux / macOS の GPU、AMD / Apple の GPU、VRAM 24 GB 未満の GPU、他の ComfyUI バージョン、flash-attn を入れた環境、
+**未確認**：Linux / macOS の GPU、AMD / Apple の GPU、VRAM 24 GB 未満の GPU、他の ComfyUI バージョンでの実モデル実行（v0.41.0 でも CI で CPU テストと実キュー確認を実行）、flash-attn を入れた環境、
 論文ベンチマークでの画質評価（公式出力の再現までを確認しています）。
 
 ## インストール

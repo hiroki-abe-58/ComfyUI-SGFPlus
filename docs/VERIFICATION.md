@@ -136,3 +136,9 @@ Note on the CI queue check: on the Ubuntu runners, ComfyUI's Save Video sometime
 files that decode to different pixels (seen on 2026-10-19 in the DuoMatching CI, 4 of 12 jobs, with ComfyUI v0.38.0 and v0.41.0;
 the frames had the same SHA-256). The check therefore compares the generated frames, not the MP4 files. Locally on Windows the
 MP4 files of identical frames were byte-identical.
+
+## ComfyUI v0.41.0
+
+Since 2026-10-19 the CI also runs the test suite and the real-queue check against ComfyUI v0.41.0 (commit
+`98cc0bf84b7cb1383654c5b402e7612d875d6d22`, Ubuntu 24.04, Python 3.12 / torch 2.14.1), next to v0.38.0, the release the
+real-model checks above used. Both pass.
