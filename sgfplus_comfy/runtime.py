@@ -144,21 +144,63 @@ def kv_cache_defaults(variant: str) -> dict:
             "kv_cache_position_mode": "contiguous"}
 
 
-def generator_calls(loaded: Loaded, latent_frames: int) -> int:
-    """Generator evaluations of one video: per block, one per denoising step plus the clean-context KV-cache pass."""
-    return latent_frames // int(loaded.pipeline.num_frame_per_block) * (len(loaded.pipeline.denoising_step_list) + 1)
+def generator_calls(loaded: Loaded, latent_frames: int, context_latents: int = 0) -> int:
+    """Generator evaluations of one video: per block, one per denoising step plus the clean-context KV-cache pass; one cache pass
+    per context block."""
+    block = int(loaded.pipeline.num_frame_per_block)
+    return latent_frames // block * (len(loaded.pipeline.denoising_step_list) + 1) + context_latents // block
+
+
+def context_pixel_frames(context_latents: int) -> int:
+    """Video frames that encode to context_latents Wan latents (the first frame alone, then 4 per latent)."""
+    return 1 + 4 * (context_latents - 1)
+
+
+def prepare_frames(frames: torch.Tensor) -> torch.Tensor:
+    """ComfyUI frames [T, H, W, 3] in 0..1 -> [1, 3, T, 480, 832] in -1..1, each frame through the official I2V transform
+    (inference.py --i2v: PIL image, torchvision Resize((480, 832)), ToTensor, Normalize(0.5, 0.5))."""
+    from PIL import Image
+    from torchvision import transforms
+
+    transform = transforms.Compose([transforms.Resize((480, 832)), transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
+    pixels = (frames[..., :3].clamp(0, 1) * 255).round().to(torch.uint8).cpu().numpy()
+    return torch.stack([transform(Image.fromarray(frame)) for frame in pixels], dim=1).unsqueeze(0)
+
+
+def image_context(image: torch.Tensor, block: int) -> torch.Tensor:
+    """The official I2V conditioning chunk: the image repeated to the frames of one block (9 for chunkwise, 1 for framewise)."""
+    frame = prepare_frames(image[:1])
+    count = context_pixel_frames(block)
+    return frame.repeat(1, 1, count, 1, 1) if count > 1 else frame
+
+
+def video_context(frames: torch.Tensor, context_latents: int) -> torch.Tensor:
+    """The last frames of a video that encode to context_latents latents, for video extension."""
+    count = context_pixel_frames(context_latents)
+    if frames.shape[0] < count:
+        raise ValueError(f"{context_latents} context latents need the last {count} frames; the video has {frames.shape[0]}")
+    return prepare_frames(frames[-count:])
 
 
 @torch.no_grad()
-def generate(loaded: Loaded, prompt: str, seed: int, latent_frames: int = 21, long_video: bool = True, progress=None) -> dict:
+def generate(loaded: Loaded, prompt: str, seed: int, latent_frames: int = 21, long_video: bool = True, progress=None, context=None) -> dict:
     """Returns {"images": [T, 480, 832, 3] float in 0..1 on the CPU, "video_255": the official `255 * video` tensor (for comparisons),
-    "report": dict}. latent_frames: Wan latent frames (4 video frames each, plus 1); a multiple of the block size (3 chunkwise).
+    "report": dict}. latent_frames: Wan latent frames to generate (4 video frames each, plus 1); a multiple of the block size
+    (3 chunkwise). context: optional frames [1, 3, F, 480, 832] in -1..1 (image_context / video_context); they are encoded into the
+    initial latent the pipeline continues from, as inference.py --i2v does, and the output starts with their decoded frames.
     progress(n) is called before every generator evaluation (it may raise to interrupt)."""
     if not prompt.strip():
         raise ValueError("prompt is empty")
     block = int(loaded.pipeline.num_frame_per_block)
     if latent_frames < block or latent_frames % block:
         raise ValueError(f"latent_frames must be a positive multiple of {block} for the {loaded.variant} model")
+    initial_latent = None
+    if context is not None:
+        # inference.py --i2v: encode first, then seed and draw the noise for the frames to generate
+        initial_latent = loaded.pipeline.vae.encode_to_latent(context.to(device=loaded.device, dtype=torch.bfloat16)).to(
+            device=loaded.device, dtype=torch.bfloat16)
+        if initial_latent.shape[1] % block:
+            raise ValueError(f"the context encodes to {initial_latent.shape[1]} latents; it must be a multiple of {block}")
     device = loaded.device
     if device.type == "cuda":
         torch.cuda.reset_peak_memory_stats(device)
@@ -178,7 +220,7 @@ def generate(loaded: Loaded, prompt: str, seed: int, latent_frames: int = 21, lo
         set_seed(int(seed))
         noise = torch.randn([1, latent_frames, *LATENT_SHAPE], device=device, dtype=torch.bfloat16)
         kv = kv_cache_defaults(loaded.variant) if long_video else {}
-        video, latents = loaded.pipeline.inference(noise=noise, text_prompts=[prompt], return_latents=True, initial_latent=None,
+        video, latents = loaded.pipeline.inference(noise=noise, text_prompts=[prompt], return_latents=True, initial_latent=initial_latent,
                                                    long_video=long_video, **kv)
     finally:
         del generator.forward  # back to the class method
@@ -187,6 +229,7 @@ def generate(loaded: Loaded, prompt: str, seed: int, latent_frames: int = 21, lo
     report = {
         "seed": int(seed),
         "latent_frames": int(latent_frames),
+        "context_latents": 0 if initial_latent is None else int(initial_latent.shape[1]),
         "frames": int(video.shape[0]),
         "fps": FPS,
         "width": int(video.shape[2]),

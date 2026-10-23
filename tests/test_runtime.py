@@ -109,6 +109,73 @@ def test_generate_equals_the_official_steps(tiny_models, variant, frames, long_v
     assert report.get("kv_cache") == (LAUNCHER_KV[variant] if long_video else None)
 
 
+def _official_i2v(tiny_models, variant, prompt, seed, frames, context, long_video):
+    """inference.py --i2v of the official repository, step by step: encode the conditioning frames, seed, noise for the frames to
+    generate, pipeline.inference(initial_latent=...)."""
+    from sgfplus_comfy.vendor.sgf.utils import wan_wrapper
+
+    wan_wrapper.WAN_MODELS = str(tiny_models["base"])
+    pipeline = causal_inference.CausalInferencePipeline(runtime.config(variant), device=torch.device("cpu"))
+    pipeline.generator.load_state_dict(torch.load(tiny_models[variant], map_location="cpu")["generator_ema"])
+    pipeline = pipeline.to(dtype=torch.bfloat16)
+    initial_latent = pipeline.vae.encode_to_latent(context.to(dtype=torch.bfloat16)).to(dtype=torch.bfloat16)
+    runtime.set_seed(seed)
+    noise = torch.randn([1, frames, *tiny_model.LATENT], device="cpu", dtype=torch.bfloat16)
+    kv = LAUNCHER_KV[variant] if long_video else {}
+    video, latents = pipeline.inference(noise=noise, text_prompts=[prompt], return_latents=True, initial_latent=initial_latent,
+                                        long_video=long_video, **kv)
+    return 255.0 * video[0].permute(0, 2, 3, 1).cpu(), latents[0]
+
+
+def test_image_context_is_the_official_i2v_transform():
+    import numpy as np
+    from PIL import Image
+    from torchvision import transforms
+
+    image = torch.rand(1, 300, 500, 3)
+    pil = Image.fromarray((image[0] * 255).round().to(torch.uint8).numpy())
+    want = transforms.Compose([transforms.Resize((480, 832)), transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])(pil)
+    context = runtime.image_context(image, 3)
+    assert context.shape == (1, 3, 9, 480, 832)  # chunkwise: the image repeated to 9 frames = 3 latents
+    assert all(torch.equal(context[0, :, i], want) for i in range(9))
+    assert runtime.image_context(image, 1).shape == (1, 3, 1, 480, 832)  # framewise: one frame, one latent
+    assert np.isclose(float(context.min()), -1, atol=0.05) or float(context.min()) >= -1
+
+
+def test_video_context_takes_the_last_frames():
+    frames = torch.rand(30, 480, 832, 3)
+    context = runtime.video_context(frames, 3)
+    assert context.shape == (1, 3, 9, 480, 832)
+    assert torch.equal(context[0, :, -1], runtime.prepare_frames(frames[-1:])[0, :, 0])
+    assert runtime.video_context(frames, 6).shape[2] == 21
+    with pytest.raises(ValueError, match="last 33 frames"):
+        runtime.video_context(frames, 9)
+
+
+@pytest.mark.parametrize(("variant", "frames", "context_frames", "long_video"), [
+    ("chunkwise", 6, 9, False),    # I2V: one image block (9 frames -> 3 latents)
+    ("chunkwise", 15, 21, True),   # video extension from 6 latents, past the rolling cache
+    ("framewise", 6, 1, False),
+])
+def test_generate_from_a_context_equals_the_official_steps(tiny_models, variant, frames, context_frames, long_video):
+    torch.manual_seed(7)
+    context = torch.rand(1, 3, context_frames, 64, 64) * 2 - 1
+    loaded = _loaded(tiny_models, variant)
+    out = runtime.generate(loaded, "a fox in the snow", 3, latent_frames=frames, long_video=long_video, context=context)
+    calls = runtime.generator_calls(loaded, frames, (context_frames - 1) // 4 + 1)
+    runtime.release()
+    video_255, latents = _official_i2v(tiny_models, variant, "a fox in the snow", 3, frames, context, long_video)
+    assert torch.equal(out["video_255"], video_255) and torch.equal(out["latents"], latents)
+    context_latents = (context_frames - 1) // 4 + 1
+    assert out["report"]["context_latents"] == context_latents and latents.shape[0] == context_latents + frames
+    assert out["report"]["generator_calls"] == calls
+
+
+def test_a_context_must_fill_whole_blocks(tiny_models):
+    with pytest.raises(ValueError, match="multiple of 3"):
+        runtime.generate(_loaded(tiny_models), "a fox", 0, latent_frames=3, context=torch.zeros(1, 3, 5, 64, 64))  # 2 latents
+
+
 def test_the_default_is_the_official_launcher_setting():
     import inspect
 

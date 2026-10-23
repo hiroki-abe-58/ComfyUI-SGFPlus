@@ -58,6 +58,15 @@ class StubVAE(torch.nn.Module):
         self.model = _StubVAEModel()
         self.gain = torch.nn.Parameter(torch.tensor(1.0))
 
+    def encode_to_latent(self, pixels):
+        """[B, 3, F, H, W] -> [B, 1 + (F - 1) // 4, 16, 8, 8] (the real VAE's latent count), deterministic."""
+        b, c, f, h, w = pixels.shape
+        frames = pixels[:, :, :1]
+        if f > 1:
+            frames = torch.cat([frames, pixels[:, :, 1:].reshape(b, c, (f - 1) // 4, 4, h, w).mean(3)], dim=2)
+        pooled = torch.nn.functional.adaptive_avg_pool3d(frames.float(), (frames.shape[2], LATENT[1], LATENT[2]))
+        return (pooled.repeat(1, 6, 1, 1, 1)[:, :LATENT[0]] * self.gain).permute(0, 2, 1, 3, 4).to(pixels.dtype)
+
     def decode_to_pixel(self, latent, use_cache=False):
         pixels = torch.tanh(latent[:, :, :3] * self.gain).float()  # the real wrapper returns float32 too
         return pixels.repeat_interleave(PIXEL_SCALE, dim=-2).repeat_interleave(PIXEL_SCALE, dim=-1)
