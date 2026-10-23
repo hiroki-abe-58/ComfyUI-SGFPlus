@@ -1,6 +1,6 @@
 # Self Gradient Forcing+ for ComfyUI
 
-Text-to-video in ComfyUI with the official **Self Gradient Forcing+ (SGF+)** models
+Text-to-video, image-to-video and video extension in ComfyUI with the official **Self Gradient Forcing+ (SGF+)** models
 ([Zihan-Su/Self_Gradient_Forcing_Plus](https://github.com/Zihan-Su/Self_Gradient_Forcing_Plus), paper
 [arXiv:2610.10429](https://arxiv.org/abs/2610.10429), *Decoupling Gradient Flows for Autoregressive Video Generation*). SGF+ is an
 autoregressive Wan2.1-T2V-1.3B: it generates a video block by block with 4 denoising steps per block, and a separate
