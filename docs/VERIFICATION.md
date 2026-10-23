@@ -142,3 +142,27 @@ MP4 files of identical frames were byte-identical.
 Since 2026-10-19 the CI also runs the test suite and the real-queue check against ComfyUI v0.41.0 (commit
 `98cc0bf84b7cb1383654c5b402e7612d875d6d22`, Ubuntu 24.04, Python 3.12 / torch 2.14.1), next to v0.38.0, the release the
 real-model checks above used. Both pass.
+
+## 8. Image to video and video extension (v0.2.0)
+
+**Image to video vs the official script (ref environment).** `inference.py --i2v` of the pinned commit through the same harness as
+section 2, with a data folder in its `TextImagePairDataset` layout (one image: EdenLive's `cryo-crossing/cover.png`, 1280×704,
+Apache-2.0; the prompt below), `--num_output_frames 21 --seed 42 --use_ema`, chunkwise, plain cache; the pack: `scripts/run_jobs.py`
+with an `image` job (the code behind SGF+ Image to Video).
+
+| | Official | Pack |
+| --- | --- | --- |
+| `255 * video` SHA-256 (first 16 hex) | `150988201f5f9bc2` | `150988201f5f9bc2` |
+| frames | 81 | 81 |
+| time, peak VRAM | | 12.6 s, 12.38 GiB |
+
+Prompt: "Cinematic photorealism. A first-person view of a volcanic cavern with a glowing lava lake and drifting steam; the camera
+moves slowly forward over the lava while embers float in the air." **Identical.** The first 9 frames show the image (the
+conditioning block decoded), then the camera moves on over the lava.
+
+**Video extension** has no official command line; the pipeline's `initial_latent` path is the official code. The tiny-model tests
+check that the pack's runtime with a video start equals those official steps bit for bit (encode, seed, noise, `inference(initial_latent=...)`),
+for 3 and 6 context latents, past the rolling cache.
+
+<!-- real queue -->
+

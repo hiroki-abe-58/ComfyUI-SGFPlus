@@ -25,13 +25,18 @@ seed 7). Default settings, real ComfyUI queue.*
 | --- | --- |
 | **SGF+ Loader** | Picks an SGF+ checkpoint from `models/sgf_plus`, its variant (chunkwise / framewise), where the text encoder lives, and a keep-loaded switch |
 | **SGF+ Text to Video** | Prompt, seed, length in latent frames, long-video cache → `IMAGE` frames (832 x 480), `fps` (16) and a JSON report |
+| **SGF+ Image to Video** | An image starts the video, as the official `inference.py --i2v` does: the image (resized to 832 x 480) fills the first block, which is encoded and cached instead of generated |
+| **SGF+ Extend Video** | Continues a video: its last frames (9 for 3 context latents) are encoded and cached as the start, then new blocks are generated with a new prompt; outputs the whole video or only the new frames |
 | **SGF+ Unload** | Frees the resident model (GPU and RAM) |
 
 Connect the frames to ComfyUI's own **Create Video** (fps from the node) and **Save Video**; the shipped workflows do exactly that.
+Chain **Extend Video** nodes to change the prompt over a long video; each one starts from the frames of the previous one (the model's
+attention cache is not carried over between nodes).
 
 Supported models: **`ZihanSu/Self_Gradient_Forcing_Plus`** `chunkwise/model.pt` (3 latent frames per block, the faster one) and
 `framewise/model.pt` (1 latent frame per block), with the **`Wan-AI/Wan2.1-T2V-1.3B`** text encoder (umT5-XXL), VAE and base
-configuration. Text-to-video only.
+configuration. SGF+ was trained for text to video; image and video starts use the pipeline's official `initial_latent` path, so
+the image or the last frames are a strong hint, not a guarantee.
 
 ## How far it was checked
 
