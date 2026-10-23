@@ -1,0 +1,8 @@
+{
+  "1": {"class_type": "SGFPlusLoader", "inputs": {"checkpoint": "sgf_plus_chunkwise.pt", "variant": "chunkwise", "text_encoder": "auto", "keep_loaded": true}},
+  "6": {"class_type": "LoadImage", "inputs": {"image": "sgf_plus_start.png"}},
+  "2": {"class_type": "SGFPlusImageToVideo", "inputs": {"model": ["1", 0], "image": ["6", 0], "prompt": "Cinematic photorealism. A first-person view of a volcanic cavern with a glowing lava lake and drifting steam; the camera moves slowly forward over the lava while embers float in the air.", "seed": 42, "latent_frames": 21, "long_video": true}},
+  "3": {"class_type": "CreateVideo", "inputs": {"images": ["2", 0], "fps": ["2", 1]}},
+  "4": {"class_type": "SaveVideo", "inputs": {"video": ["3", 0], "filename_prefix": "sgf_plus/i2v", "format": "auto", "codec": "auto"}},
+  "5": {"class_type": "PreviewAny", "inputs": {"source": ["2", 2]}}
+}

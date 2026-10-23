@@ -96,6 +96,95 @@ class SGFPlusTextToVideo(io.ComfyNode):
         return io.NodeOutput(out["images"], float(runtime.FPS), report)
 
 
+def _run(model, prompt, seed, latent_frames, long_video, context):
+    import comfy.model_management as mm
+
+    mm.throw_exception_if_processing_interrupted()
+    loaded = runtime.acquire(model)
+    info = loaded.info
+    try:
+        context_latents = (context.shape[2] - 1) // 4 + 1
+        out = runtime.generate(loaded, prompt, seed, latent_frames, long_video, context=context,
+                               progress=_progress(runtime.generator_calls(loaded, latent_frames, context_latents)))
+    finally:
+        del loaded  # drop this reference first, otherwise release() cannot free the weights
+        if not model.get("keep_loaded", True):
+            runtime.release()
+    out["report"] = {"model": {k: info[k] for k in ("checkpoint", "variant", "text_encoder")}, **out["report"]}
+    return out
+
+
+class SGFPlusImageToVideo(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="SGFPlusImageToVideo",
+            display_name="SGF+ Image to Video",
+            category="video/sgf_plus",
+            description=("Starts the video from an image, as the official inference.py --i2v does: the image (resized to 832 x 480) "
+                         "fills the first block, which is encoded and cached instead of generated. The first 9 frames (chunkwise) show "
+                         "the image. SGF+ was trained for text to video, so the image is a strong hint rather than a guarantee."),
+            inputs=[
+                SGFPlusModel.Input("model"),
+                io.Image.Input("image"),
+                io.String.Input("prompt", multiline=True, default="The camera slowly pushes in while leaves drift in the wind."),
+                io.Int.Input("seed", default=42, min=0, max=0xFFFFFFFF, control_after_generate=True),
+                io.Int.Input("latent_frames", default=21, min=2, max=255, step=1,
+                             tooltip="Total length in latent frames including the image block (official --num_output_frames). 21 = 81 frames."),
+                io.Boolean.Input("long_video", default=True, tooltip="As in SGF+ Text to Video."),
+            ],
+            outputs=[io.Image.Output(display_name="images"), io.Float.Output(display_name="fps"), io.String.Output(display_name="report")],
+        )
+
+    @classmethod
+    def execute(cls, model, image, prompt, seed, latent_frames, long_video) -> io.NodeOutput:
+        block = runtime.config(model["variant"]).num_frame_per_block
+        if latent_frames <= block:
+            raise ValueError(f"latent_frames must be more than the image block ({block})")
+        out = _run(model, prompt, seed, latent_frames - block, long_video, runtime.image_context(image, block))
+        return io.NodeOutput(out["images"], float(runtime.FPS), json.dumps(out["report"], indent=1))
+
+
+class SGFPlusExtendVideo(io.ComfyNode):
+    @classmethod
+    def define_schema(cls):
+        return io.Schema(
+            node_id="SGFPlusExtendVideo",
+            display_name="SGF+ Extend Video",
+            category="video/sgf_plus",
+            description=("Continues a video: its last frames (1 + 4 x (context_latents - 1), e.g. 9) are encoded and cached as the start, "
+                         "then new blocks are generated with this prompt. Chain several to make a long video with changing prompts; each "
+                         "run starts from the frames of the last one (the model's memory of earlier frames is not carried over)."),
+            inputs=[
+                SGFPlusModel.Input("model"),
+                io.Image.Input("images", tooltip="the video so far (832 x 480 at 16 fps fits the model; other sizes are resized)"),
+                io.String.Input("prompt", multiline=True, default="The fox stops, looks back over its shoulder, then runs on."),
+                io.Int.Input("seed", default=43, min=0, max=0xFFFFFFFF, control_after_generate=True),
+                io.Int.Input("context_latents", default=3, min=1, max=60, tooltip="Latent frames of context; a multiple of the block size (3 chunkwise)."),
+                io.Int.Input("latent_frames", default=21, min=1, max=255, tooltip="New latent frames to generate (4 frames each); a multiple of the block size."),
+                io.Boolean.Input("long_video", default=True, tooltip="As in SGF+ Text to Video."),
+                io.Combo.Input("output", options=["input + new frames", "new frames"], default="input + new frames"),
+            ],
+            outputs=[io.Image.Output(display_name="images"), io.Float.Output(display_name="fps"), io.String.Output(display_name="report")],
+        )
+
+    @classmethod
+    def execute(cls, model, images, prompt, seed, context_latents, latent_frames, long_video, output) -> io.NodeOutput:
+        out = _run(model, prompt, seed, latent_frames, long_video, runtime.video_context(images, context_latents))
+        # keep the frames of the new latents: the decoder gives 1 frame for the first latent and the same number for each later one
+        frames, latents = out["images"].shape[0], out["latents"].shape[0]
+        per_latent = (frames - 1) // (latents - 1) if latents > 1 else 1
+        new = out["images"][frames - per_latent * latent_frames:]
+        if output == "input + new frames":
+            import comfy.utils
+
+            previous = images[..., :3].float().cpu()
+            if previous.shape[1:3] != new.shape[1:3]:  # bring the input to the generated size to join them
+                previous = comfy.utils.common_upscale(previous.movedim(-1, 1), new.shape[2], new.shape[1], "bilinear", "disabled").movedim(1, -1)
+            new = torch.cat([previous, new], dim=0)
+        return io.NodeOutput(new, float(runtime.FPS), json.dumps(out["report"], indent=1))
+
+
 class SGFPlusUnload(io.ComfyNode):
     @classmethod
     def define_schema(cls):
@@ -120,7 +209,7 @@ class SGFPlusUnload(io.ComfyNode):
 
 class SGFPlusExtension(ComfyExtension):
     async def get_node_list(self):
-        return [SGFPlusLoader, SGFPlusTextToVideo, SGFPlusUnload]
+        return [SGFPlusLoader, SGFPlusTextToVideo, SGFPlusImageToVideo, SGFPlusExtendVideo, SGFPlusUnload]
 
 
 async def comfy_entrypoint() -> SGFPlusExtension:
