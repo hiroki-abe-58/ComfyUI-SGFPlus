@@ -1,0 +1,8 @@
+{
+  "1": {"class_type": "SGFPlusLoader", "inputs": {"checkpoint": "sgf_plus_chunkwise.pt", "variant": "chunkwise", "text_encoder": "auto", "keep_loaded": true}},
+  "2": {"class_type": "SGFPlusTextToVideo", "inputs": {"model": ["1", 0], "prompt": "A red fox trotting through fresh snow in a pine forest, morning light, cinematic.", "seed": 42, "latent_frames": 21, "long_video": true}},
+  "6": {"class_type": "SGFPlusExtendVideo", "inputs": {"model": ["1", 0], "images": ["2", 0], "prompt": "The red fox stops in the fresh snow, looks back over its shoulder, then runs on between the pines, morning light, cinematic.", "seed": 43, "context_latents": 3, "latent_frames": 21, "long_video": true, "output": "input + new frames"}},
+  "3": {"class_type": "CreateVideo", "inputs": {"images": ["6", 0], "fps": ["6", 1]}},
+  "4": {"class_type": "SaveVideo", "inputs": {"video": ["3", 0], "filename_prefix": "sgf_plus/t2v_extended", "format": "auto", "codec": "auto"}},
+  "5": {"class_type": "PreviewAny", "inputs": {"source": ["6", 2]}}
+}

@@ -171,11 +171,16 @@ class SGFPlusExtendVideo(io.ComfyNode):
     @classmethod
     def execute(cls, model, images, prompt, seed, context_latents, latent_frames, long_video, output) -> io.NodeOutput:
         out = _run(model, prompt, seed, latent_frames, long_video, runtime.video_context(images, context_latents))
-        new = out["images"][runtime.context_pixel_frames(context_latents):]  # drop the decoded context frames
+        # keep the frames of the new latents: the decoder gives 1 frame for the first latent and the same number for each later one
+        frames, latents = out["images"].shape[0], out["latents"].shape[0]
+        per_latent = (frames - 1) // (latents - 1) if latents > 1 else 1
+        new = out["images"][frames - per_latent * latent_frames:]
         if output == "input + new frames":
+            import comfy.utils
+
             previous = images[..., :3].float().cpu()
-            if previous.shape[1:3] != new.shape[1:3]:  # bring the input to the model's 832 x 480 to join them
-                previous = runtime.prepare_frames(images).squeeze(0).permute(1, 2, 3, 0).add(1).div(2)
+            if previous.shape[1:3] != new.shape[1:3]:  # bring the input to the generated size to join them
+                previous = comfy.utils.common_upscale(previous.movedim(-1, 1), new.shape[2], new.shape[1], "bilinear", "disabled").movedim(1, -1)
             new = torch.cat([previous, new], dim=0)
         return io.NodeOutput(new, float(runtime.FPS), json.dumps(out["report"], indent=1))
 

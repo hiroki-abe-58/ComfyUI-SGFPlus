@@ -14,7 +14,7 @@ import torch
 import tiny_model
 
 ROOT = Path(__file__).resolve().parents[1]
-NODE_IDS = {"SGFPlusLoader", "SGFPlusTextToVideo", "SGFPlusUnload"}
+NODE_IDS = {"SGFPlusLoader", "SGFPlusTextToVideo", "SGFPlusImageToVideo", "SGFPlusExtendVideo", "SGFPlusUnload"}
 
 
 def pack_module(comfy_nodes, name):
@@ -29,6 +29,11 @@ def comfy_nodes(comfy_dir, tiny_models, tmp_path_factory):
 
     base = tmp_path_factory.mktemp("comfy")
     folder_paths.set_output_directory(str(base / "output"))
+    folder_paths.set_input_directory(str(base / "input"))
+    (base / "input").mkdir()
+    from PIL import Image
+
+    Image.new("RGB", (128, 72), (90, 120, 160)).save(base / "input" / "sgf_plus_start.png")  # the name the I2V workflow loads
     models = tiny_models["base"]
     shutil.copyfile(tiny_models["chunkwise"], models / "sgf_plus_chunkwise.pt")  # the name the shipped workflows use
     (models / "notes.txt").write_text("not a checkpoint", encoding="utf-8")
@@ -142,7 +147,38 @@ def test_long_video_report(comfy_nodes):
     assert parsed["long_video"] is True and parsed["kv_cache"]["kv_cache_max_frames"] == 12 and parsed["frames"] == 15
 
 
+def test_image_to_video_node(comfy_nodes):
+    runtime = pack_module(comfy_nodes, "runtime")
+    image = torch.rand(1, 72, 128, 3)
+    node = comfy_nodes.NODE_CLASS_MAPPINGS["SGFPlusImageToVideo"]
+    images, fps, report = node.execute(_handle(comfy_nodes), image, "a fox in the snow", 5, 9, False).args
+    parsed = json.loads(report)
+    assert parsed["context_latents"] == 3 and parsed["latent_frames"] == 6  # 9 in total: the image block + 6 generated
+    direct = runtime.generate(runtime.acquire(_handle(comfy_nodes)), "a fox in the snow", 5, latent_frames=6, long_video=False,
+                              context=runtime.image_context(image, 3))
+    assert torch.equal(images, direct["images"]) and fps == 16.0
+    with pytest.raises(ValueError, match="more than the image block"):
+        node.execute(_handle(comfy_nodes), image, "a fox", 5, 3, False)
+
+
+def test_extend_video_node(comfy_nodes):
+    runtime = pack_module(comfy_nodes, "runtime")
+    video = torch.rand(20, *tiny_model.FRAME, 3)
+    node = comfy_nodes.NODE_CLASS_MAPPINGS["SGFPlusExtendVideo"]
+    new, _, report = node.execute(_handle(comfy_nodes), video, "the fox turns", 6, 3, 6, False, "new frames").args
+    direct = runtime.generate(runtime.acquire(_handle(comfy_nodes)), "the fox turns", 6, latent_frames=6, long_video=False,
+                              context=runtime.video_context(video, 3))
+    assert json.loads(report)["context_latents"] == 3
+    assert torch.equal(new, direct["images"][-new.shape[0]:]) and new.shape[0] == 6  # the tiny stub decodes one frame per latent
+    full, _, _ = node.execute(_handle(comfy_nodes), video, "the fox turns", 6, 3, 6, False, "input + new frames").args
+    assert full.shape[0] == 20 + 6 and torch.equal(full[20:], new)
+    # an input of another size is resized to the generated frames for joining
+    small = torch.rand(20, 32, 48, 3)
+    joined, _, _ = node.execute(_handle(comfy_nodes), small, "the fox turns", 6, 3, 6, False, "input + new frames").args
+    assert joined.shape == (26, *new.shape[1:])
+
+
 def test_shipped_gui_workflows_use_known_nodes():
     for path in sorted((ROOT / "workflows" / "gui").glob("*.json")):
         types = {n["type"] for n in json.loads(path.read_text(encoding="utf-8"))["nodes"]}
-        assert types <= NODE_IDS | {"CreateVideo", "SaveVideo", "PreviewAny", "Note", "MarkdownNote"}, path.name
+        assert types <= NODE_IDS | {"CreateVideo", "SaveVideo", "PreviewAny", "Note", "MarkdownNote", "LoadImage"}, path.name
