@@ -164,5 +164,9 @@ conditioning block decoded), then the camera moves on over the lava.
 check that the pack's runtime with a video start equals those official steps bit for bit (encode, seed, noise, `inference(initial_latent=...)`),
 for 3 and 6 context latents, past the rolling cache.
 
-<!-- real queue -->
+**Real queue (comfy environment, ComfyUI v0.38.0, RTX 5090).** `workflows/api/i2v_basic.json` with a SaveImage of every frame
+added: success in 70.5 s (model load included), 81 frames **identical** (max difference 0) to the pack's runtime run in-process in
+the same environment (`run_jobs.py`, same image, prompt, seed and rolling cache). `workflows/api/t2v_then_extend.json`: success
+(31 s with the model already loaded), 165 frames = the 81 text-to-video frames plus 84 new ones; the motion carries on across the
+join. All four API workflows load in the frontend with no missing nodes and the same graph back (`scripts/export_gui_workflows.py`).
 
